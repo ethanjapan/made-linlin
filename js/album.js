@@ -32,13 +32,11 @@ let current = 0;
   photos = album.photos || [];
   photos.forEach((ph, i) => {
     const fig = document.createElement("figure");
-    const img = document.createElement("img");
-    img.loading = "lazy";
-    img.src = ph.thumb || ph.full;
-    img.alt = `${album.title} ${i + 1}`;
-    const cap = document.createElement("figcaption");
-    cap.textContent = [ph.date, ph.lens].filter(Boolean).join("  ·  ");
-    fig.append(img, cap);
+    fig.innerHTML = IMG.picture(ph, ph.thumb || ph.full, {
+      alt: `${album.title} ${i + 1}`,
+      sizes: "(max-width:640px) 45vw, (max-width:1100px) 30vw, 300px",
+    }) + `<figcaption></figcaption>`;
+    fig.querySelector("figcaption").textContent = [ph.date, ph.lens].filter(Boolean).join("  ·  ");
     fig.addEventListener("click", () => openLightbox(i));
     grid.appendChild(fig);
   });
@@ -60,7 +58,8 @@ function openLightbox(i) {
 }
 function renderLightbox() {
   const ph = photos[current];
-  lbImg.src = ph.full;
+  lbImg.onerror = (ph.avif && ph.avif.full) ? () => { lbImg.onerror = null; lbImg.src = ph.full; } : null;  // AVIF不可ならJPEGへ
+  lbImg.src = (ph.avif && ph.avif.full) ? ph.avif.full : ph.full;
   lbCap.textContent = [ph.date, ph.camera, ph.lens].filter(Boolean).join("   ·   ");
 }
 function close() { lb.classList.remove("is-on"); lb.setAttribute("aria-hidden", "true"); unlockScroll(); }

@@ -38,25 +38,54 @@ async function listImages(dir) {
   try { return (await fs.readdir(dir)).filter(isImg).sort(); } catch { return []; }
 }
 
+// レスポンシブ＋AVIF: 各画像を full(2048)/mid(1280)/thumb(700) で出力。
+//   JPEGは常に出力。AVIFは「fullでJPEGより明確に小さい時だけ」3サイズ出力＝<picture>で重いAVIFを配らせない安全策。
+//   命名: full=name.jpg/.avif, mid=name-1280.jpg/.avif, thumb=thumb/name.jpg/.avif
+const SIZES = [
+  { key: "full",  edge: 2048, q: 80, dir: "" },
+  { key: "mid",   edge: 1280, q: 78, dir: "" },
+  { key: "thumb", edge: 700,  q: 72, dir: "thumb" },
+];
+const AVIF_Q = 50, AVIF_EFFORT = 5;
+
 async function processImage(srcPath, outDir, relBase) {
   const name = path.parse(srcPath).name;
-  const webRel = path.posix.join(relBase, `${name}.jpg`);
-  const thumbRel = path.posix.join(relBase, "thumb", `${name}.jpg`);
   await fs.mkdir(path.join(outDir, "thumb"), { recursive: true });
   const img = sharp(srcPath, { failOn: "none" }).rotate();
   const meta = await img.metadata();
-  await img.clone().resize(WEB_EDGE, WEB_EDGE, { fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 82, mozjpeg: true, chromaSubsampling: "4:4:4" }).withMetadata()
-    .toFile(path.join(outDir, `${name}.jpg`));
-  await img.clone().resize(THUMB_EDGE, THUMB_EDGE, { fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 74, mozjpeg: true }).withMetadata().toFile(path.join(outDir, "thumb", `${name}.jpg`));
+
+  const baseName = (s) => (s.key === "mid" ? `${name}-1280` : name);
+  const relOf = (s, ext) => path.posix.join(relBase, s.dir ? `${s.dir}/` : "", `${baseName(s)}.${ext}`);
+  const fileOf = (s, ext) => path.join(outDir, s.dir, `${baseName(s)}.${ext}`);
+  const resize = (s) => img.clone().resize(s.edge, s.edge, { fit: "inside", withoutEnlargement: true });
+
+  const jpg = {}, jpgBytes = {};
+  for (const s of SIZES) {
+    const buf = await resize(s).jpeg({ quality: s.q, mozjpeg: true, chromaSubsampling: "4:4:4" }).withMetadata().toBuffer();
+    await fs.writeFile(fileOf(s, "jpg"), buf);
+    jpg[s.key] = relOf(s, "jpg"); jpgBytes[s.key] = buf.length;
+  }
+
+  // AVIF: fullで判定→明確に小さければ3サイズ採用
+  let avif = null;
+  const avifFull = await resize(SIZES[0]).avif({ quality: AVIF_Q, effort: AVIF_EFFORT }).toBuffer();
+  if (avifFull.length < jpgBytes.full * 0.9) {
+    avif = {};
+    for (const s of SIZES) {
+      const buf = s.key === "full" ? avifFull : await resize(s).avif({ quality: AVIF_Q, effort: AVIF_EFFORT }).toBuffer();
+      await fs.writeFile(fileOf(s, "avif"), buf);
+      avif[s.key] = relOf(s, "avif");
+    }
+  }
+
   const blur = await img.clone().resize(24).blur().jpeg({ quality: 40 }).toBuffer();
   let exif = {};
   try { exif = (await exifr.parse(srcPath, ["DateTimeOriginal", "Model", "LensModel", "FNumber", "ISO", "FocalLength"])) || {}; } catch {}
   const longEdge = Math.max(meta.width || 0, meta.height || 0);
   const ratio = longEdge ? Math.min(WEB_EDGE / longEdge, 1) : 1;
   return {
-    full: webRel, thumb: thumbRel,
+    full: jpg.full, thumb: jpg.thumb,        // 後方互換（従来の単一URL）
+    jpg, avif,                               // レスポンシブ＋AVIF（picture/srcset用。avif=nullなら未採用）
     w: Math.round((meta.width || 0) * ratio), h: Math.round((meta.height || 0) * ratio),
     blur: `data:image/jpeg;base64,${blur.toString("base64")}`,
     date: exif.DateTimeOriginal ? new Date(exif.DateTimeOriginal).toISOString().slice(0, 10) : null,
@@ -90,6 +119,10 @@ async function buildAlbum(dir, folderName, collectionName) {
     const years = photos.map((p) => p.date && p.date.slice(0, 4)).filter(Boolean);
     if (years.length) { const c = {}; years.forEach((y) => (c[y] = (c[y] || 0) + 1)); year = +Object.entries(c).sort((a, b) => b[1] - a[1])[0][0]; }
   }
+  // 表紙: _album.json の cover(ファイル名)に一致する写真、無ければ先頭
+  const coverPhoto = meta.cover
+    ? (photos.find((p) => path.parse(p.full).name === path.parse(meta.cover).name) || photos[0])
+    : photos[0];
   return {
     slug,
     title: meta.title || folderName,
@@ -100,7 +133,8 @@ async function buildAlbum(dir, folderName, collectionName) {
     tags: Array.isArray(meta.tags) ? meta.tags : [],
     featured: !!meta.featured,
     order: meta.order ?? 999,
-    cover: meta.cover ? path.posix.join(relBase, meta.cover) : photos[0].full,
+    cover: coverPhoto.full,                                        // 後方互換（単一URL）
+    coverSet: { jpg: coverPhoto.jpg, avif: coverPhoto.avif },      // レスポンシブ＋AVIF
     count: photos.length,
     photos,
   };

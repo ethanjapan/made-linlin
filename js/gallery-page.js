@@ -48,7 +48,7 @@ const sections = [];  // { sectionEl, cardEls: [] }
       const lqip = a.photos && a.photos[0] && a.photos[0].blur ? a.photos[0].blur : null;
       card.innerHTML = `
         <div class="work-card__img"${lqip ? ` style="background-image:url('${lqip}')"` : ""}>
-          <img loading="lazy" decoding="async" src="${a.cover}" alt="${a.title}" />
+          ${IMG.picture(a.coverSet, a.cover, { alt: a.title, sizes: "(max-width:640px) 45vw, (max-width:1100px) 30vw, 360px" })}
         </div>
         <div class="work-card__overlay">
           <span class="work-card__title">${a.title}</span>

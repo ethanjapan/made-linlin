@@ -300,7 +300,10 @@ function buildPanels(albums) {
     const mat = new THREE.MeshBasicMaterial({ color: 0x111418, toneMapped: false });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), mat);
 
-    loadCoverTexture(album.cover)
+    // 軽い表紙を読む: avif(mid) → jpg(mid) → 従来cover
+    const cs = album.coverSet;
+    const coverUrl = (cs && cs.avif && cs.avif.mid) || (cs && cs.jpg && cs.jpg.mid) || album.cover;
+    loadCoverTexture(coverUrl)
       .then((tex) => { mat.map = tex; mat.color.set(0xffffff); mat.needsUpdate = true; })
       .catch(() => { mat.map = makeFallbackTexture(album.title); mat.color.set(0xffffff); mat.needsUpdate = true; });
 
