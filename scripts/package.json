@@ -5,7 +5,10 @@
   "type": "module",
   "description": "写真フォルダから manifest と最適化画像を生成するビルドスクリプト",
   "scripts": {
-    "build": "node build-gallery.mjs"
+    "build": "node build-gallery.mjs",
+    "ingest": "node ingest.mjs",
+    "ingest:dry": "node ingest.mjs --dry",
+    "ingest:publish": "node ingest.mjs --publish"
   },
   "dependencies": {
     "exifr": "^7.1.3",
