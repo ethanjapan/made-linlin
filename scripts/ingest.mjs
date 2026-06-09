@@ -17,6 +17,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import readline from "node:readline";
 import exifr from "exifr";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -62,8 +63,9 @@ async function readExif(p) {
 }
 
 const PROMPT =
-  "この写真を見て、次のJSONだけを返してください（前置き・説明は一切なし）。\n" +
-  '{"collection":"風景|夜景|ポートレート|街|花|静物|動物|その他 のどれか1つ",' +
+  "この写真をカタログ化します。次のJSONだけを返してください（前置き・説明は一切なし）。\n" +
+  '{"person": 人物が主要な被写体、または顔がはっきり識別できるなら true ／ 風景等で人がいない・小さく目立たないなら false,' +
+  '"collection":"風景|夜景|ポートレート|街|花|静物|動物|その他 のどれか1つ",' +
   '"time_of_day":"昼|夕|夜",' +
   '"tags":["内容を表す日本語タグを3〜5個"],' +
   '"title_hint":"この一枚に合う短い詩的な日本語のアルバム名候補（10文字前後）"}';
@@ -80,20 +82,28 @@ async function analyze(p) {
     const j = await res.json();
     const o = JSON.parse(j.response);
     return {
+      person: !!o.person,
       collection: COL_SLUG[o.collection] ? o.collection : "その他",
       time: o.time_of_day || null,
       tags: Array.isArray(o.tags) ? o.tags.slice(0, 5) : [],
       title: (o.title_hint || "").toString().slice(0, 24),
     };
   } catch (e) {
-    return { collection: null, time: null, tags: [], title: null, err: e.message };
+    return { person: false, collection: null, time: null, tags: [], title: null, err: e.message };
   }
+}
+
+// 対話確認（公開前に必ず）。非対話環境では false（＝公開しない・安全側）。
+function confirm(q) {
+  if (!process.stdin.isTTY) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(q, (a) => { rl.close(); resolve(/^y(es)?$/i.test((a || "").trim())); });
+  });
 }
 
 const mode = (arr) => { const c = {}; arr.filter(Boolean).forEach((x) => (c[x] = (c[x] || 0) + 1)); return Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0] || null; };
 const topTags = (arrs, k = 4) => { const c = {}; arrs.flat().forEach((t) => (c[t] = (c[t] || 0) + 1)); return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, k).map((x) => x[0]); };
-// グループから代表を最大n枚、均等に抽出（大量でもAI判定を最小化）
-const pickReps = (list, n) => { if (list.length <= n) return list; const step = list.length / n, out = []; for (let i = 0; i < n; i++) out.push(list[Math.floor(i * step)]); return out; };
 
 async function main() {
   const files = await listInbox();
@@ -104,58 +114,53 @@ async function main() {
   try { const r = await fetch(`${OLLAMA}/api/tags`, { signal: AbortSignal.timeout(4000) }); vlmOk = r.ok && JSON.stringify(await r.json()).includes(MODEL.split(":")[0]); } catch {}
   console.log(`\n  取り込み: ${files.length}枚 / VLM(${MODEL}): ${vlmOk ? "ON" : "OFF（タグ無し・日付分類のみ）"}\n`);
 
-  // 1) EXIF を全件読む（高速）
-  const items = [];
+  // 1) EXIF ＋ AI（人物などを選別＋分類）を全件
+  if (!vlmOk) console.log("  ⚠ AI(VLM)に接続できません＝人物の自動選別ができません。Ollama起動(127.0.0.1)を確認してください。\n");
+  const all = [];
+  let i = 0;
   for (const file of files) {
     const src = path.join(INBOX, file);
     const exif = await readExif(src);
-    items.push({ file, src, exif, date: exif.date || "undated" });
+    const vis = vlmOk ? await analyze(src) : { person: false, collection: null, tags: [], title: null };
+    process.stdout.write(`\r  AI選別 ${++i}/${files.length}  ${file.slice(0, 18).padEnd(18)} ${vis.person ? "除外(人物)" : (vis.collection || "-")}        `);
+    all.push({ file, src, exif, date: exif.date || "undated", vis });
   }
-  // 2) 撮影日でグループ化（各日 = 1アルバム）
-  const groups = {};
-  items.forEach((it) => { (groups[it.date] ||= []).push(it); });
-  const dates = Object.keys(groups).sort();
+  console.log("\n");
 
-  // 3) 各グループの「代表 最大4枚」だけ AI 分類 → 大量でも高速
-  const REPS = 4;
-  const estVlm = vlmOk ? dates.reduce((n, d) => n + Math.min(REPS, groups[d].length), 0) : 0;
-  console.log(`  ${dates.length}グループ(撮影日) / AI判定 約${estVlm}枚（各日の代表のみ＝高速化）${vlmOk ? "" : " ※VLM OFF=日付分類のみ"}\n`);
+  const kept = all.filter((x) => !x.vis.person);       // 採用
+  const excluded = all.filter((x) => x.vis.person);    // AIが人物等として除外
+
+  // 2) 採用分を撮影日でグループ化（各日 = 1アルバム）。コレクション/タイトル/タグは多数決
+  const groups = {};
+  kept.forEach((it) => { (groups[it.date] ||= []).push(it); });
 
   const plan = [];
-  let vlmDone = 0;
-  for (const date of dates) {
-    const list = groups[date];
-    let colJa = "その他", title = null, tags = [];
-    if (vlmOk) {
-      const vis = [];
-      for (const it of pickReps(list, REPS)) {
-        vis.push(await analyze(it.src));
-        process.stdout.write(`\r  AI判定 ${++vlmDone}/${estVlm}  (${date})          `);
-      }
-      colJa = mode(vis.map((v) => v.collection)) || "その他";
-      title = mode(vis.map((v) => v.title)) || null;
-      tags = topTags(vis.map((v) => v.tags));
-    }
+  for (const [date, list] of Object.entries(groups).sort()) {
+    const colJa = mode(list.map((x) => x.vis.collection)) || "その他";
     const colSlug = COL_SLUG[colJa] || slugify(colJa);
-    title = title || (date !== "undated" ? `${date} の記録` : "未分類");
+    const title = mode(list.map((x) => x.vis.title)) || (date !== "undated" ? `${date} の記録` : "未分類");
+    const tags = topTags(list.map((x) => x.vis.tags));
     const year = date !== "undated" ? Number(date.slice(0, 4)) : null;
     plan.push({ date, colJa, colSlug, title, tags, year, items: list });
   }
-  if (vlmOk) console.log("\n");
 
   // 表示（確認用）
-  console.log("  === 振り分け案 ===");
+  console.log("  === 振り分け案（採用） ===");
   plan.forEach((a) => {
     console.log(`  ▸ [${a.colJa}] ${a.title}  (${a.items.length}枚 / ${a.date}${a.year ? " / " + a.year : ""})`);
     console.log(`     tags: ${a.tags.join(" , ") || "—"}`);
     const cam = a.items[0].exif;
     console.log(`     EXIF例: ${[cam.date, cam.camera, cam.lens, cam.f, cam.iso].filter(Boolean).join(" · ") || "なし(リサイズで消えた可能性)"}`);
   });
+  console.log(`\n  === AI除外（人物など） ${excluded.length}枚 ===`);
+  if (excluded.length) excluded.forEach((e) => console.log(`    - ${e.file}`));
+  else console.log("    （なし）");
   console.log("");
 
-  if (DRY) { console.log("  --dry: ファイルは移動していません。\n"); return; }
+  if (DRY) { console.log("  --dry: ファイルは動かしていません（確認用）。\n"); return; }
+  if (!plan.length) { console.log("  採用できる写真がありませんでした。\n"); return; }
 
-  // photos/ へ振り分け（コピー）＋ _album.json
+  // 採用分を photos/ へ振り分け＋_album.json
   const collectionsPath = path.join(PHOTOS, "collections.json");
   let collections = {};
   try { collections = JSON.parse(await fs.readFile(collectionsPath, "utf8")); } catch {}
@@ -176,23 +181,29 @@ async function main() {
   }
   await fs.writeFile(collectionsPath, JSON.stringify(collections, null, 2));
 
-  // 取り込んだ元を _inbox/_done へ退避（重複取り込み防止）
-  const done = path.join(INBOX, "_done");
-  await fs.mkdir(done, { recursive: true });
-  for (const it of items) await fs.rename(it.src, path.join(done, it.file)).catch(() => {});
+  // 除外分は _inbox/_excluded/ へ、採用の元は _inbox/_done/ へ退避
+  if (excluded.length) {
+    const exDir = path.join(INBOX, "_excluded");
+    await fs.mkdir(exDir, { recursive: true });
+    for (const e of excluded) await fs.rename(e.src, path.join(exDir, e.file)).catch(() => {});
+  }
+  const doneDir = path.join(INBOX, "_done");
+  await fs.mkdir(doneDir, { recursive: true });
+  for (const it of kept) await fs.rename(it.src, path.join(doneDir, it.file)).catch(() => {});
 
-  console.log(`  ✓ ${plan.length}アルバム / 計${items.length}枚を photos/ に振り分けました。`);
-  console.log(`    元写真は _inbox/_done/ に退避済み（不要なら削除可）。\n`);
-  console.log("  次の手順:");
-  console.log("   1) Finder で photos/ を確認・必要なら _album.json のタイトル/タグ/featured を調整");
-  console.log("   2) ローカルプレビューで見た目を確認");
-  console.log("   3) 問題なければ: git add -A && git commit -m \"写真を追加\" && git push\n");
+  console.log(`  ✓ ${plan.length}アルバム / ${kept.length}枚を photos/ に振り分け（除外 ${excluded.length}枚は _inbox/_excluded/）。`);
+  console.log("\n  ⚠ このコマンドは公開しません。必ず確認してから公開してください:");
+  console.log("   1) Finder/プレビューで photos/ を確認（_album.json のタイトル/タグ/featured 調整可）");
+  console.log("   2) 除外 _inbox/_excluded/ を確認（戻したい写真は _inbox/ に戻して再実行）");
+  console.log("   3) 良ければ公開: git add -A && git commit -m \"写真を追加\" && git push\n");
 
   if (PUBLISH) {
-    console.log("  --publish: build→commit→push を実行します…");
+    const ok = await confirm("  ▶ この内容で公開（build → commit → push）しますか？ [y/N]: ");
+    if (!ok) { console.log("  → 公開を中止しました（photos/ には振り分け済み。後で手動pushで公開できます）。\n"); return; }
+    console.log("  公開中…");
     execFileSync("node", ["build-gallery.mjs"], { cwd: path.join(ROOT, "scripts"), stdio: "inherit" });
     execFileSync("git", ["-C", ROOT, "add", "-A"], { stdio: "inherit" });
-    execFileSync("git", ["-C", ROOT, "commit", "-m", `写真を追加（${plan.length}アルバム/${items.length}枚）`], { stdio: "inherit" });
+    execFileSync("git", ["-C", ROOT, "commit", "-m", `写真を追加（${plan.length}アルバム/${kept.length}枚）`], { stdio: "inherit" });
     execFileSync("git", ["-C", ROOT, "push"], { stdio: "inherit" });
     console.log("  ✓ 公開しました。\n");
   }
