@@ -245,7 +245,10 @@ function setMix(m) {
 async function loadManifest() {
   const res = await fetch("data/manifest.json", { cache: "no-store" });
   state.manifest = await res.json();
-  buildPanels(state.manifest.albums || []);
+  const all = state.manifest.albums || [];
+  const featured = all.filter((a) => a.featured);
+  // 入り口(3D)には featured:true のアルバムだけを飛ばす。1つも無ければ全アルバム。
+  buildPanels(featured.length ? featured : all);
 }
 
 function buildPanels(albums) {

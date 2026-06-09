@@ -4,3 +4,5 @@ _site/
 scripts/node_modules/
 *.log
 .claude/
+# 運用手順書はローカル限定（パスに実名が含まれ得るため公開リポに入れない）
+*.xlsx
