@@ -10,6 +10,7 @@ const countEl = document.getElementById("works-count");
 const clearBtn = document.getElementById("works-clear");
 const searchInput = document.getElementById("works-search");
 
+const t = (k, v) => (window.I18N ? window.I18N.t(k, v) : k);   // 多言語ヘルパー
 const state = { q: "", tags: new Set(), years: new Set() };
 const entries = [];   // { album, cardEl, searchText }
 const sections = [];  // { sectionEl, cardEls: [] }
@@ -17,7 +18,7 @@ const sections = [];  // { sectionEl, cardEls: [] }
 (async function init() {
   let m;
   try { m = await (await fetch("data/manifest.json", { cache: "no-store" })).json(); }
-  catch { loadingEl.textContent = "作品の読み込みに失敗しました。"; return; }
+  catch { loadingEl.textContent = t("works.loaderr"); return; }
   loadingEl.remove();
 
   const albumsBySlug = Object.fromEntries((m.albums || []).map((a) => [a.slug, a]));
@@ -32,7 +33,7 @@ const sections = [];  // { sectionEl, cardEls: [] }
     const sec = document.createElement("section");
     sec.className = "works-collection";
     sec.id = `col-${col.slug}`;
-    const sub = [col.description, `${albums.length}作品`].filter(Boolean).join("  ・  ");
+    const sub = [col.description, t("works.count.some", { n: albums.length })].filter(Boolean).join("  ・  ");
     sec.innerHTML = `<header class="works-collection__head"><h2>${col.title}</h2><p>${sub}</p></header>`;
     const g = document.createElement("div");
     g.className = "works-grid";
@@ -42,7 +43,7 @@ const sections = [];  // { sectionEl, cardEls: [] }
       const card = document.createElement("a");
       card.className = "work-card";
       card.href = `album.html?album=${encodeURIComponent(a.slug)}&from=collections`;
-      const meta = [`${a.count}点`, a.year || null].filter(Boolean).join("  ・  ");
+      const meta = [t("album.count", { n: a.count }), a.year || null].filter(Boolean).join("  ・  ");
       const tags = (a.tags || []).slice(0, 3).map((t) => `<span>${t}</span>`).join("");
       const lqip = a.photos && a.photos[0] && a.photos[0].blur ? a.photos[0].blur : null;
       card.innerHTML = `
@@ -161,7 +162,7 @@ function applyFilter() {
     s.sectionEl.hidden = !any;
   });
   const active = state.q || state.tags.size || state.years.size;
-  countEl.textContent = active ? `${visible}作品` : `全${entries.length}作品`;
+  countEl.textContent = active ? t("works.count.some", { n: visible }) : t("works.count.all", { n: entries.length });
   clearBtn.hidden = !active;
   emptyEl.hidden = visible !== 0;
 }

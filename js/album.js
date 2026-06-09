@@ -1,12 +1,14 @@
 // アルバム詳細：?album=slug に対応する写真一覧 + ライトボックス
 const params = new URLSearchParams(location.search);
 const slug = params.get("album");
+const t = (k, v) => (window.I18N ? window.I18N.t(k, v) : k);   // 多言語ヘルパー
 
 // 戻り先：作品一覧から来たら一覧へ、3D体験から来たらギャラリー（作品整列）へ
+// （テキストは data-i18n を切替え、i18n.js が言語に応じて適用）
 const backEl = document.getElementById("back");
 if (backEl && params.get("from") === "collections") {
   backEl.href = "gallery.html";
-  backEl.textContent = "← 作品一覧へ戻る";
+  backEl.setAttribute("data-i18n", "album.back.works");
 }
 
 const grid = document.getElementById("grid");
@@ -25,7 +27,7 @@ let current = 0;
   document.title = `${album.title} — made_linlin`;
   document.getElementById("album-title").textContent = album.title;
   document.getElementById("album-sub").textContent =
-    `${album.subtitle ? album.subtitle + " ・ " : ""}${album.count}点`;
+    `${album.subtitle ? album.subtitle + " ・ " : ""}${t("album.count", { n: album.count })}`;
 
   photos = album.photos || [];
   photos.forEach((ph, i) => {
