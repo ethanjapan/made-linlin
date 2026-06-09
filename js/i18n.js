@@ -160,22 +160,36 @@
   function injectStyles() {
     if (document.getElementById("lang-switch-style")) return;
     const css =
-      ".lang-switch{position:fixed;bottom:1.4rem;left:1.4rem;z-index:11;display:flex;gap:.1rem;padding:.25rem;border-radius:99px;" +
-      "background:rgba(18,16,14,.5);border:1px solid rgba(244,239,231,.28);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}" +
+      ".lang-switch{position:fixed;bottom:1.4rem;right:1.4rem;z-index:11;display:flex;gap:.1rem;padding:.25rem;border-radius:99px;" +
+      "background:rgba(18,16,14,.5);border:1px solid rgba(244,239,231,.28);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);" +
+      "transition:opacity .45s ease,transform .45s ease;}" +
+      ".lang-switch.is-hidden{opacity:0;transform:translateY(18px);pointer-events:none;}" +
       ".lang-switch__btn{-webkit-appearance:none;appearance:none;background:none;border:none;cursor:pointer;color:rgba(244,239,231,.55);" +
       "font-family:'Zen Kaku Gothic New',system-ui,sans-serif;font-size:.72rem;letter-spacing:.06em;padding:.35rem .7rem;border-radius:99px;transition:color .3s,background .3s;}" +
       ".lang-switch__btn:hover{color:#f4efe7;}" +
       ".lang-switch__btn.is-on{color:#16130d;background:linear-gradient(120deg,#f3d8a8,#e9c9a0);}" +
-      "@media (max-width:640px){.lang-switch{bottom:1rem;left:1rem;}.lang-switch__btn{font-size:.7rem;padding:.32rem .6rem;}}";
+      "@media (max-width:640px){.lang-switch{bottom:1rem;right:1rem;}.lang-switch__btn{font-size:.7rem;padding:.32rem .6rem;}}";
     const s = document.createElement("style");
     s.id = "lang-switch-style";
     s.textContent = css;
     document.head.appendChild(s);
   }
 
+  // スクロールしたら隠す（最上部に戻った時だけ表示＝コンテンツに被らない）
+  function wireAutoHide() {
+    const host = document.querySelector(".lang-switch");
+    if (!host) return;
+    const update = () => {
+      const y = window.scrollY || document.documentElement.scrollTop || 0;
+      host.classList.toggle("is-hidden", y > 40);
+    };
+    window.addEventListener("scroll", update, { passive: true });
+    update();
+  }
+
   window.I18N = { t: t, setLang: setLang, get lang() { return lang; } };
 
-  function init() { injectStyles(); buildSwitcher(); apply(); }
+  function init() { injectStyles(); buildSwitcher(); apply(); wireAutoHide(); }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();
