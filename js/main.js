@@ -59,6 +59,7 @@ const canvas    = document.getElementById("scene");
 const captionEl  = document.getElementById("caption");
 const pointer   = new THREE.Vector2(-2, -2);
 const raycaster = new THREE.Raycaster();
+const _v        = new THREE.Vector3();   // ラベルの3D→2D投影用
 
 // ---- 端末判定（モバイル / タッチ / 縦持ち）----
 const isTouch = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
@@ -119,6 +120,21 @@ function loadTexture(url, isDepth = false) {
 
 async function fileExists(url) {
   try { const r = await fetch(url, { method: "HEAD" }); return r.ok; } catch { return false; }
+}
+
+// 表紙テクスチャ：EXIF回転を尊重して読み込む（<img>と同じ向き）。
+// WebGLのtexImage2DはEXIFを無視して反転することがあるため、createImageBitmap(from-image)で正立化。
+async function loadCoverTexture(url) {
+  try {
+    const blob = await (await fetch(url, { mode: "cors" })).blob();
+    const bmp = await createImageBitmap(blob, { imageOrientation: "from-image" });
+    const tex = new THREE.Texture(bmp);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  } catch (e) {
+    return await loadTexture(url);   // 古いブラウザ等は通常読み込みにフォールバック（画像は出る）
+  }
 }
 
 // 実深度PNGがあればそれを、無ければ画像から擬似深度を返す
@@ -252,27 +268,41 @@ async function loadManifest() {
 }
 
 function buildPanels(albums) {
-  const loader = new THREE.TextureLoader();
-  loader.crossOrigin = "anonymous";
   const n = albums.length;
-  const portrait = VH() >= VW();   // 縦持ちは2列・小さめ
-  const PW = portrait ? 2.4 : 2.8, PH = portrait ? 3.0 : 3.5;
+  const portrait = VH() >= VW();
   const cols = Math.min(n, portrait ? 2 : 3);
   const rows = Math.ceil(n / cols);
-  const GX = portrait ? 3.0 : 4.0, GY = portrait ? 3.7 : 4.4;
   const CZ = -25, CY = 2.0;
+
+  // 動的サイズ：ギャラリー視点(カメラz=-15)から見て、グリッド全体が画面の一定割合に収まるよう自動縮小。
+  // 枚数が増えるほど自動で小さくなり、画面いっぱいの圧迫感を防いで周囲に余白を残す。
+  const dist = CZ - (-15);                                   // = 10（updateScene のドリー終点と一致）
+  const fov = portrait ? 64 : 50;
+  const visH = 2 * dist * Math.tan(fov * Math.PI / 360);
+  const visW = visH * (VW() / VH());
+  const gap = 0.30;                                          // パネルに対する隙間の割合
+  const fillW = portrait ? 0.84 : 0.66, fillH = portrait ? 0.68 : 0.72;   // 画面に対する占有率（残りが余白）
+  const cardAR = 0.8;                                        // カードの w/h（縦長）
+  let PW = (visW * fillW) / (cols + (cols - 1) * gap);
+  let PH = PW / cardAR;
+  const maxPH = (visH * fillH) / (rows + (rows - 1) * gap);
+  if (PH > maxPH) { PH = maxPH; PW = PH * cardAR; }          // 縦が溢れるなら縦基準で縮小
+  const GX = PW * (1 + gap), GY = PH * (1 + gap);
+
+  // スマホ用ラベル（PCのホバー吹き出しの代替＝各アルバムの下にタイトルを常時表示）
+  let labelHost = document.getElementById("panel-labels");
+  if (!labelHost) { labelHost = document.createElement("div"); labelHost.id = "panel-labels"; labelHost.setAttribute("aria-hidden", "true"); document.body.appendChild(labelHost); }
+  labelHost.innerHTML = "";
+
   const rnd = mulberry32(7);
 
   albums.forEach((album, idx) => {
     const mat = new THREE.MeshBasicMaterial({ color: 0x111418, toneMapped: false });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), mat);
 
-    loader.load(
-      album.cover,
-      (tex) => { tex.colorSpace = THREE.SRGBColorSpace; mat.map = tex; mat.color.set(0xffffff); mat.needsUpdate = true; },
-      undefined,
-      () => { mat.map = makeFallbackTexture(album.title); mat.color.set(0xffffff); mat.needsUpdate = true; }
-    );
+    loadCoverTexture(album.cover)
+      .then((tex) => { mat.map = tex; mat.color.set(0xffffff); mat.needsUpdate = true; })
+      .catch(() => { mat.map = makeFallbackTexture(album.title); mat.color.set(0xffffff); mat.needsUpdate = true; });
 
     const row = Math.floor(idx / cols);
     const colInRow = idx - row * cols;
@@ -288,7 +318,15 @@ function buildPanels(albums) {
     mesh.scale.setScalar(0.2);
     mesh.userData = { album, idx };
     scene.add(mesh);
-    state.panels.push({ mesh, album, start, target, baseY: target.y, startRot: mesh.rotation.clone() });
+
+    const labelEl = document.createElement("div");
+    labelEl.className = "panel-label";
+    labelEl.innerHTML = `<span class="panel-label__t"></span><span class="panel-label__m"></span>`;
+    labelEl.querySelector(".panel-label__t").textContent = album.title;
+    labelEl.querySelector(".panel-label__m").textContent = `${album.count}点`;
+    labelHost.appendChild(labelEl);
+
+    state.panels.push({ mesh, album, start, target, baseY: target.y, startRot: mesh.rotation.clone(), labelEl, halfH: PH / 2 });
   });
 }
 
@@ -356,6 +394,18 @@ function updateScene(time) {
     state.layers.motes.material.opacity = (1 - state.mix) * (0.30 + 0.14 * Math.sin(time * 0.6));
     state.layers.motes.rotation.y = time * 0.016;
   }
+
+  // スマホ：各アルバムの下にタイトルを常時表示（PCのホバー吹き出しの代替）。整列後に出す。
+  const showLabels = isTouch && state.ready && p > ASSEMBLE_END - 0.06 && !state.inCTA;
+  state.panels.forEach((pn) => {
+    if (!pn.labelEl) return;
+    if (!showLabels) { if (pn.labelEl.style.opacity !== "0") pn.labelEl.style.opacity = "0"; return; }
+    _v.set(pn.mesh.position.x, pn.mesh.position.y - pn.halfH, pn.mesh.position.z).project(camera);
+    if (_v.z > 1) { pn.labelEl.style.opacity = "0"; return; }   // 背後なら隠す
+    pn.labelEl.style.transform =
+      `translate(${(_v.x * 0.5 + 0.5) * VW()}px, ${(-_v.y * 0.5 + 0.5) * VH()}px) translate(-50%, 8px)`;
+    pn.labelEl.style.opacity = "1";
+  });
 
   if (interactive && state.ready && !isTouch) handleHover();   // ホバーはPCのみ
   else if (state.hovered) clearHover();
