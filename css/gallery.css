@@ -1,0 +1,126 @@
+.works-body{ background:var(--bg); min-height:100vh; color:var(--ink); }
+
+/* ===== 上部（スクロールで自動的に隠れる） ===== */
+.works-header{
+  position:sticky; top:0; z-index:20;
+  transition:transform .45s cubic-bezier(.4,0,.2,1);
+}
+.works-header.is-hidden{ transform:translateY(-100%); }
+
+.works-top{
+  display:flex; align-items:center; gap:1.4rem;
+  padding:1rem 6vw;
+  background:rgba(11,13,18,.72);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid rgba(255,255,255,.06);
+  flex-wrap:wrap;
+}
+.works-back{
+  font-size:.78rem; letter-spacing:.16em; color:var(--ink-dim);
+  padding:.45rem .85rem; border:1px solid rgba(255,255,255,.12); border-radius:99px; transition:.3s; white-space:nowrap;
+}
+.works-back:hover{ color:var(--ink); border-color:rgba(233,201,160,.5); }
+.works-brand{ font-family:var(--serif); font-size:1.2rem; letter-spacing:.32em; text-indent:.32em; margin-right:auto; }
+.works-nav{ display:flex; gap:.5rem; flex-wrap:wrap; }
+.works-pill{
+  font-family:var(--sans); font-size:.74rem; letter-spacing:.12em; color:var(--ink-dim);
+  background:none; -webkit-appearance:none; appearance:none; line-height:1.5;
+  padding:.4rem .9rem; border:1px solid rgba(255,255,255,.12); border-radius:99px; transition:.3s; cursor:pointer;
+}
+.works-pill:hover{ color:var(--ink); border-color:rgba(233,201,160,.45); }
+.works-pill.is-active{ color:#15171c; background:var(--accent); border-color:var(--accent); }
+
+/* ===== 検索ボックス ===== */
+.works-search{
+  display:flex; align-items:center; gap:.5rem; margin-left:auto;
+  padding:.4rem .9rem; min-width:min(320px, 60vw);
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); border-radius:99px;
+  transition:border-color .3s;
+}
+.works-search:focus-within{ border-color:rgba(233,201,160,.55); }
+.works-search__icon{ color:var(--ink-dim); font-size:1rem; }
+.works-search input{
+  flex:1; background:none; border:none; outline:none; color:var(--ink);
+  font-family:var(--sans); font-size:.85rem; letter-spacing:.06em;
+}
+.works-search input::placeholder{ color:var(--ink-dim); }
+
+/* ===== 絞り込みバー（タグ / 年） ===== */
+.works-filter{
+  display:flex; flex-direction:column; gap:.55rem;
+  padding:.9rem 6vw;
+  background:rgba(11,13,18,.6); backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+.works-filter__row{ display:flex; align-items:center; gap:.7rem; }
+.works-filter__label{ font-size:.66rem; letter-spacing:.2em; color:var(--ink-dim); min-width:2.4em; }
+.works-filter__pills{ display:flex; gap:.45rem; flex-wrap:wrap; }
+.works-pill--filter{ cursor:pointer; }
+.works-filter__meta{ display:flex; align-items:center; gap:1rem; margin-top:.1rem; }
+.works-count{ font-size:.72rem; letter-spacing:.14em; color:var(--ink-dim); }
+.works-clear{
+  background:none; border:1px solid rgba(255,255,255,.16); color:var(--ink-dim);
+  font-size:.7rem; letter-spacing:.12em; padding:.32rem .8rem; border-radius:99px; cursor:pointer; transition:.3s;
+}
+.works-clear:hover{ color:var(--ink); border-color:rgba(233,201,160,.5); }
+
+.works-empty{ color:var(--ink-dim); text-align:center; padding:14vh 0; letter-spacing:.18em; }
+
+/* 絞り込みで非表示 */
+.work-card.filtered-out{ display:none !important; }
+
+/* ===== 本体 ===== */
+.works-main{ max-width:1500px; margin:0 auto; padding:4vh 6vw 12vh; }
+.works-loading{ color:var(--ink-dim); text-align:center; padding:20vh 0; letter-spacing:.2em; }
+
+.works-collection{ margin-top:7vh; scroll-margin-top:90px; }
+.works-collection:first-child{ margin-top:3vh; }
+.works-collection__head{ margin-bottom:2.4rem; }
+.works-collection__head h2{
+  font-family:var(--serif); font-weight:400; font-size:clamp(1.9rem,3.6vw,3rem); letter-spacing:.03em;
+}
+.works-collection__head p{ margin-top:.5rem; color:var(--ink-dim); letter-spacing:.18em; font-size:.82rem; }
+
+/* ===== グリッド（何作品でも自動で折り返す） ===== */
+.works-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(248px, 1fr));
+  gap:clamp(14px, 1.6vw, 26px);
+}
+.work-card{
+  position:relative; display:block; aspect-ratio:4/5;
+  border-radius:8px; overflow:hidden; background:#15181e;
+  opacity:0; transform:translateY(22px);
+}
+.work-card.in{ opacity:1; transform:none; transition:opacity .8s ease, transform .8s cubic-bezier(.2,.7,.2,1); }
+.work-card__img{
+  position:absolute; inset:0;
+  background-color:#15181e; background-size:cover; background-position:center;  /* LQIP（ぼかし）の土台 */
+}
+.work-card__img img{
+  width:100%; height:100%; object-fit:cover; display:block;
+  opacity:0; transition:opacity .7s ease, transform 1.1s cubic-bezier(.2,.7,.2,1), filter .6s;
+  filter:saturate(.96) brightness(.94);
+}
+.work-card__img img.loaded{ opacity:1; }
+.work-card:hover .work-card__img img{ transform:scale(1.06); filter:saturate(1.05) brightness(1); }
+.work-card__overlay{
+  position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end; gap:.3rem;
+  padding:1.3rem 1.2rem 1.1rem;
+  background:linear-gradient(transparent 45%, rgba(8,9,12,.78));
+}
+.work-card__title{ font-family:var(--serif); font-size:1.32rem; letter-spacing:.02em; line-height:1.2; }
+.work-card__sub{ font-size:.72rem; letter-spacing:.14em; color:var(--ink-dim); }
+.work-card__tags{ display:flex; gap:.4rem; margin-top:.5rem; opacity:0; transform:translateY(6px); transition:.4s; }
+.work-card:hover .work-card__tags{ opacity:1; transform:none; }
+.work-card__tags span{
+  font-size:.62rem; letter-spacing:.1em; color:var(--ink-dim);
+  padding:.2rem .55rem; border:1px solid rgba(255,255,255,.18); border-radius:99px;
+}
+
+@media (max-width:640px){
+  .works-top{ gap:.8rem; padding:.85rem 5vw; }
+  .works-brand{ font-size:1rem; }
+  .works-grid{ grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:12px; }
+  .work-card__title{ font-size:1.05rem; }
+}

@@ -1,0 +1,259 @@
+:root{
+  --ink:#f4efe7;          /* 文字（淡いアイボリー） */
+  --ink-dim:rgba(244,239,231,.55);
+  --bg:#0b0d12;           /* 一番暗い背景 */
+  --accent:#e9c9a0;       /* 灯りの暖色 */
+  --accent-2:#9fb6c4;     /* 朝の冷色 */
+  --serif:"Cormorant Garamond", "Shippori Mincho", serif;   /* ラテン=Cormorant / 日本語=明朝 */
+  --sans:"Zen Kaku Gothic New", system-ui, sans-serif;
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; }
+html,body{ background:var(--bg); color:var(--ink); }
+body{
+  font-family:var(--sans);
+  font-weight:300;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+a{ color:inherit; text-decoration:none; }
+
+/* ===== 3Dキャンバスは背景に固定 ===== */
+#scene{
+  position:fixed; inset:0;
+  width:100vw; height:100vh;
+  display:block; z-index:0;
+}
+
+/* ===== スクロールコンテナ：3D演出ぶんの高さを稼ぐ ===== */
+/* pointer-events:none で、下の3Dキャンバスへホバー/クリックを透過させる */
+#scroll{ position:relative; z-index:2; pointer-events:none; }
+.panel{
+  position:relative;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:8vh 6vw;
+  pointer-events:none;          /* 3Dの操作を邪魔しない（UIは個別にautoへ） */
+}
+.panel--hero{ min-height:130vh; }
+.panel--approach{ min-height:120vh; }
+.panel--gallery{ min-height:160vh; align-items:flex-start; }
+
+/* ===== ヒーロー ===== */
+.hero__title{ text-align:center; max-width:60ch; }
+.hero__kicker{
+  font-size:.78rem; letter-spacing:.5em; text-indent:.5em;
+  color:var(--ink-dim); margin-bottom:2.2rem; font-weight:400;
+}
+.hero__title h1{
+  font-family:var(--serif);
+  font-weight:300;
+  font-size:clamp(2.6rem, 7vw, 6rem);
+  line-height:1.05;
+  letter-spacing:.01em;
+  text-shadow:0 2px 40px rgba(0,0,0,.5);
+}
+.hero__lead{
+  margin-top:2.5rem; color:var(--ink-dim);
+  font-size:.95rem; letter-spacing:.25em;
+}
+
+.scroll-hint{
+  position:fixed; left:50%; bottom:3.5vh; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:.8rem;
+  color:var(--ink-dim); z-index:3;
+  transition:opacity .6s ease;
+}
+.scroll-hint span{ font-size:.62rem; letter-spacing:.45em; text-indent:.45em; }
+.scroll-hint i{
+  width:1px; height:46px;
+  background:linear-gradient(var(--ink-dim), transparent);
+  animation:drip 2.2s ease-in-out infinite;
+  transform-origin:top;
+}
+@keyframes drip{ 0%{transform:scaleY(0);opacity:0} 30%{opacity:1} 100%{transform:scaleY(1);opacity:0} }
+
+/* ===== 接近テキスト ===== */
+.approach__line{
+  font-family:var(--serif);
+  font-style:italic;
+  font-size:clamp(1.1rem,2.4vw,1.8rem);
+  color:var(--ink-dim);
+  text-align:center;
+  opacity:0;                 /* ScrollTriggerで出す */
+}
+
+/* ===== ギャラリー見出し ===== */
+.gallery__head{
+  text-align:center; width:100%;
+  margin-top:6vh; opacity:0;
+}
+.gallery__head h2{
+  font-family:var(--serif); font-weight:400;
+  font-size:clamp(2rem,4vw,3.2rem); letter-spacing:.04em;
+}
+.gallery__head p{ margin-top:.8rem; color:var(--ink-dim); letter-spacing:.18em; font-size:.85rem; }
+
+/* ===== 3D作品のキャプション ===== */
+.caption{
+  position:fixed; z-index:4; pointer-events:none;
+  left:0; top:0;
+  padding:.7rem 1rem;
+  background:rgba(11,13,18,.55);
+  backdrop-filter:blur(8px);
+  border:1px solid rgba(233,201,160,.25);
+  border-radius:10px;
+  display:flex; flex-direction:column; gap:.15rem;
+  opacity:0; transform:translateY(6px);
+  transition:opacity .35s ease, transform .35s ease;
+  white-space:nowrap;
+}
+.caption.is-on{ opacity:1; transform:translateY(0); }
+.caption__title{ font-family:var(--serif); font-size:1.15rem; letter-spacing:.02em; }
+.caption__meta{ font-size:.7rem; color:var(--ink-dim); letter-spacing:.12em; }
+
+/* ===== フッター ===== */
+.site-footer{
+  position:relative; z-index:2;
+  padding:14vh 6vw 8vh;
+  text-align:center;
+  color:var(--ink-dim);
+  font-size:.8rem; letter-spacing:.2em;
+  display:flex; flex-direction:column; gap:.6rem;
+}
+.site-footer__sub{ font-family:var(--serif); font-style:italic; letter-spacing:.05em; }
+
+/* ===== 締めのCTA（Instagram誘導） ===== */
+.cta{
+  position:relative; z-index:2;
+  min-height:100vh;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:16vh 6vw 6vh; text-align:center;
+  background:linear-gradient(rgba(11,13,18,0) 0%, var(--bg) 12%);  /* 3Dの上に暗転して立ち上がる */
+}
+.cta__inner{ display:flex; flex-direction:column; align-items:center; gap:1.5rem; max-width:42ch; }
+.cta__lead{ font-family:var(--serif); font-style:italic; font-size:clamp(1.2rem,2.6vw,1.9rem); color:var(--ink-dim); letter-spacing:.02em; }
+.cta__handle{ font-family:var(--serif); font-size:clamp(2.4rem,6vw,4.4rem); letter-spacing:.03em; color:var(--ink); transition:color .4s; }
+.cta__handle:hover{ color:var(--accent); }
+.cta__btn{
+  display:inline-flex; align-items:center; gap:.7rem; margin-top:.5rem;
+  padding:.85rem 1.9rem; border:1px solid rgba(244,239,231,.3); border-radius:99px;
+  color:var(--ink); font-family:var(--sans); font-size:.82rem; letter-spacing:.18em;
+  transition:border-color .5s ease, color .5s ease, background .5s ease, box-shadow .6s ease;
+}
+.cta__btn:hover{
+  border-color:rgba(233,201,160,.7); color:#16130d;
+  background:linear-gradient(120deg, #f3d8a8, #e9a06a);
+  box-shadow:0 0 42px rgba(233,160,100,.35);
+}
+.cta__ig{ flex:none; }
+.cta__note{ margin-top:.8rem; color:var(--ink-dim); font-size:.8rem; letter-spacing:.22em; }
+.cta__foot{ margin-top:11vh; color:var(--ink-dim); font-size:.72rem; letter-spacing:.18em; }
+
+/* ===== ローダー ===== */
+.loader{
+  position:fixed; inset:0; z-index:50;
+  background:var(--bg);
+  display:flex; align-items:center; justify-content:center;
+  transition:opacity .9s ease, visibility .9s;
+}
+.loader.is-hidden{ opacity:0; visibility:hidden; }
+.loader__inner{ display:flex; flex-direction:column; align-items:center; gap:1.6rem; }
+/* 「寫」マーク：サイトの金(accent)に合わせた、静かな明朝の一文字 */
+.loader__mark{
+  font-family:"Shippori Mincho", serif; font-weight:500;
+  font-size:3.4rem; color:var(--accent); line-height:1; letter-spacing:.04em;
+}
+.loader__bar{ width:140px; height:1px; background:rgba(255,255,255,.12); overflow:hidden; }
+.loader__bar i{ display:block; width:40%; height:100%; background:var(--accent); transform:translateX(-120%); animation:load 1.2s ease-in-out infinite; }
+@keyframes load{ to{ transform:translateX(360%);} }
+
+/* ===== 作品一覧への導線（左上） ===== */
+.works-link{
+  position:fixed; top:2rem; left:2rem; z-index:10;
+  display:flex; align-items:center; gap:.6rem;
+  padding:.7rem 1.25rem;
+  background:rgba(18,16,14,.5);
+  border:1px solid rgba(244,239,231,.32);
+  border-radius:99px;
+  color:var(--ink);
+  backdrop-filter:blur(12px);
+  font-family:var(--sans); font-size:.82rem; letter-spacing:.18em;
+  transition:background .5s ease, border-color .5s ease;
+}
+.works-link:hover{ border-color:rgba(233,201,160,.6); background:rgba(18,16,14,.62); }
+.works-link__ic{ width:17px; height:17px; flex:none; color:var(--accent); }
+
+/* ===== 朝/夜トグル ===== */
+.mode-toggle{
+  position:fixed; top:2rem; right:2rem; z-index:10;
+  display:flex; align-items:center; gap:.6rem;
+  padding:.7rem 1.25rem;
+  background:rgba(18,16,14,.5);
+  border:1px solid rgba(244,239,231,.32);
+  border-radius:99px;
+  color:var(--ink); cursor:pointer;
+  backdrop-filter:blur(12px);
+  font-family:var(--sans); font-size:.82rem; letter-spacing:.18em;
+  transition:background .6s ease, border-color .6s ease, color .6s ease;
+}
+.mode-toggle:hover{ border-color:rgba(233,201,160,.6); background:rgba(18,16,14,.62); }
+/* アイコンは固定幅の枠に重ねてクロスフェード＝押しても幅が変わらない */
+.mode-toggle__icons{ position:relative; width:18px; height:18px; flex:none; }
+.mode-toggle__ic{ position:absolute; inset:0; width:18px; height:18px; transition:opacity .5s ease, transform .5s ease; }
+.mode-toggle__ic--day{ color:#ffd9a0; opacity:1; transform:scale(1) rotate(0); }
+.mode-toggle__ic--night{ color:#aecbff; opacity:0; transform:scale(.55) rotate(-35deg); }
+.mode-toggle.is-night .mode-toggle__ic--day{ opacity:0; transform:scale(.55) rotate(35deg); }
+.mode-toggle.is-night .mode-toggle__ic--night{ opacity:1; transform:scale(1) rotate(0); }
+.mode-toggle.is-night{ background:rgba(10,14,26,.55); border-color:rgba(174,203,255,.42); }
+.mode-toggle__label{ opacity:.85; white-space:nowrap; }
+
+/* ===== スマホ：傾き(ジャイロ)有効化バナー ===== */
+.motion-start{
+  position:fixed; left:50%; bottom:5.5vh; transform:translateX(-50%);
+  z-index:11; display:inline-flex; align-items:center; gap:.5rem;
+  padding:.7rem 1.25rem; border-radius:99px;
+  background:rgba(20,18,16,.5); border:1px solid rgba(233,201,160,.35);
+  color:var(--ink); font-family:var(--sans); font-size:.76rem; letter-spacing:.1em;
+  backdrop-filter:blur(10px); cursor:pointer;
+  animation:motionPulse 2.6s ease-in-out infinite; transition:opacity .8s ease;
+}
+@keyframes motionPulse{ 0%,100%{ box-shadow:0 0 0 rgba(233,201,160,0); } 50%{ box-shadow:0 0 26px rgba(233,201,160,.3); } }
+.motion-start.is-fade{ opacity:.35; animation:none; }
+.motion-start.is-done{ opacity:0; pointer-events:none; }
+.motion-start svg{ width:17px; height:17px; flex:none; color:var(--accent); }
+
+/* ===== シネマ的グレード（ビネット＋フィルムグレイン） ===== */
+.grade{ position:fixed; inset:0; z-index:6; pointer-events:none; }
+.grade::before{
+  content:""; position:absolute; inset:0;
+  background:radial-gradient(125% 95% at 50% 42%, transparent 50%, rgba(0,0,0,.16) 76%, rgba(0,0,0,.46) 100%);
+}
+.grade::after{
+  content:""; position:absolute; inset:-60%;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity:.05; mix-blend-mode:overlay;
+  animation:grain .9s steps(3) infinite;
+}
+@keyframes grain{
+  0%{transform:translate(0,0)} 33%{transform:translate(-4%,2%)} 66%{transform:translate(3%,-3%)} 100%{transform:translate(0,0)}
+}
+@media (prefers-reduced-motion:reduce){ .grade::after{ animation:none; } }
+
+/* 進捗のヒントを徐々に隠す用 */
+.is-faded{ opacity:0 !important; }
+
+@media (max-width:640px){
+  .hero__kicker{ letter-spacing:.32em; font-size:.66rem; }
+  .hero__title h1{ font-size:clamp(2.2rem,9vw,3.4rem); }
+  .hero__lead{ font-size:.82rem; letter-spacing:.18em; }
+  /* 上部の導線（作品一覧 / 朝夜トグル）をコンパクトに */
+  .works-link, .mode-toggle{ top:1.2rem; padding:.6rem 1rem; font-size:.74rem; letter-spacing:.1em; }
+  .works-link{ left:1rem; gap:.45rem; } .mode-toggle{ right:1rem; gap:.45rem; }
+  /* 締めCTA */
+  .cta__btn{ padding:.8rem 1.5rem; letter-spacing:.12em; }
+  .cta__lead{ font-size:1.05rem; }
+  .motion-start{ bottom:4.5vh; font-size:.7rem; padding:.6rem 1.05rem; }
+}

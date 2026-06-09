@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Works — made_linlin</title>
+  <meta name="description" content="作品一覧。コレクション別・タグ/年で絞り込み。made_linlin の写真作品集。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Shippori+Mincho:wght@400;500;800&family=Zen+Kaku+Gothic+New:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/gallery.css" />
+</head>
+<body class="works-body">
+
+  <!-- スクロールで自動的に隠れる上部（検索・絞り込みを内包） -->
+  <div class="works-header" id="works-header">
+  <header class="works-top" id="works-top">
+    <a href="index.html" class="works-back">← 入口の体験へ</a>
+    <div class="works-brand">WORKS</div>
+    <label class="works-search">
+      <span class="works-search__icon" aria-hidden="true">⌕</span>
+      <input id="works-search" type="search" placeholder="検索（作品名・タグ・コレクション…）" aria-label="作品を検索" autocomplete="off" />
+    </label>
+  </header>
+
+  <!-- 絞り込み（タグ / 年）。作品が増えるほど効いてくる -->
+  <div class="works-filter" id="works-filter" hidden>
+    <div class="works-filter__row">
+      <span class="works-filter__label">タグ</span>
+      <div class="works-filter__pills" id="filter-tags"></div>
+    </div>
+    <div class="works-filter__row" id="filter-years-row">
+      <span class="works-filter__label">年</span>
+      <div class="works-filter__pills" id="filter-years"></div>
+    </div>
+    <div class="works-filter__meta">
+      <span id="works-count" class="works-count"></span>
+      <button id="works-clear" class="works-clear" type="button">クリア</button>
+    </div>
+  </div>
+  </div><!-- /works-header -->
+
+  <main class="works-main" id="works-main">
+    <div class="works-loading" id="works-loading">作品を読み込み中…</div>
+    <div class="works-empty" id="works-empty" hidden>該当する作品がありません。</div>
+  </main>
+
+  <footer class="site-footer">
+    <div>© 2026 made_linlin</div>
+    <div class="site-footer__sub">Made with light.</div>
+  </footer>
+
+  <script type="module" src="js/gallery-page.js"></script>
+</body>
+</html>

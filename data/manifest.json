@@ -1,0 +1,65 @@
+{
+  "site": {
+    "title": "made_linlin — Photography",
+    "author": "made_linlin",
+    "_note": "このファイルは scripts/build-gallery.mjs が自動生成します。下記はプレビュー用サンプル（画像は picsum）。schema2: collections[](将来の階層表示用) と albums[](従来通り) を持つ。"
+  },
+  "schema": 2,
+  "collections": [
+    { "slug": "landscape", "title": "風景", "description": "自然と光のあいだ", "order": 1, "albumSlugs": ["karuizawa-summer", "sea-and-light"] },
+    { "slug": "cityscape", "title": "夜景", "description": "灯りと都市", "order": 2, "albumSlugs": ["tokyo-night"] }
+  ],
+  "albums": [
+    {
+      "slug": "karuizawa-summer",
+      "title": "軽井沢 高原の夏",
+      "subtitle": "森と光のあいだ",
+      "collection": "風景", "collectionTitle": "風景", "collectionSlug": "landscape",
+      "series": "高原", "year": 2025, "tags": ["森", "光", "夏"], "featured": true, "order": 1,
+      "cover": "https://picsum.photos/seed/karuizawa1/1200/1500",
+      "count": 6,
+      "photos": [
+        { "full": "https://picsum.photos/seed/karuizawa1/1600/2000", "thumb": "https://picsum.photos/seed/karuizawa1/600/750", "w": 1600, "h": 2000, "date": "2025-08-10", "camera": "Canon EOS R5 Mark II", "lens": "RF35mm F1.4" },
+        { "full": "https://picsum.photos/seed/karuizawa2/2000/1333", "thumb": "https://picsum.photos/seed/karuizawa2/600/400", "w": 2000, "h": 1333, "date": "2025-08-10", "camera": "Canon EOS R5 Mark II", "lens": "RF35mm F1.4" },
+        { "full": "https://picsum.photos/seed/karuizawa3/1600/2000", "thumb": "https://picsum.photos/seed/karuizawa3/600/750", "w": 1600, "h": 2000, "date": "2025-08-11", "camera": "Canon EOS R5 Mark II", "lens": "RF85mm F1.2" },
+        { "full": "https://picsum.photos/seed/karuizawa4/2000/1333", "thumb": "https://picsum.photos/seed/karuizawa4/600/400", "w": 2000, "h": 1333, "date": "2025-08-11", "camera": "Canon EOS R5 Mark II", "lens": "RF24-70mm F2.8" },
+        { "full": "https://picsum.photos/seed/karuizawa5/1600/2000", "thumb": "https://picsum.photos/seed/karuizawa5/600/750", "w": 1600, "h": 2000, "date": "2025-08-12", "camera": "Canon EOS R5 Mark II", "lens": "RF50mm F1.2" },
+        { "full": "https://picsum.photos/seed/karuizawa6/2000/1333", "thumb": "https://picsum.photos/seed/karuizawa6/600/400", "w": 2000, "h": 1333, "date": "2025-08-12", "camera": "Canon EOS R5 Mark II", "lens": "RF15-35mm F2.8" }
+      ]
+    },
+    {
+      "slug": "tokyo-night",
+      "title": "夜の東京",
+      "subtitle": "灯りの粒",
+      "collection": "夜景", "collectionTitle": "夜景", "collectionSlug": "cityscape",
+      "series": null, "year": 2025, "tags": ["夜", "灯り", "都市"], "featured": true, "order": 2,
+      "cover": "https://picsum.photos/seed/tokyo1/1200/1500",
+      "count": 6,
+      "photos": [
+        { "full": "https://picsum.photos/seed/tokyo1/1600/2000", "thumb": "https://picsum.photos/seed/tokyo1/600/750", "w": 1600, "h": 2000, "date": "2025-03-02", "camera": "Canon EOS R5 Mark II", "lens": "RF85mm F1.2" },
+        { "full": "https://picsum.photos/seed/tokyo2/2000/1333", "thumb": "https://picsum.photos/seed/tokyo2/600/400", "w": 2000, "h": 1333, "date": "2025-03-02", "camera": "Canon EOS R5 Mark II", "lens": "RF35mm F1.4" },
+        { "full": "https://picsum.photos/seed/tokyo3/1600/2000", "thumb": "https://picsum.photos/seed/tokyo3/600/750", "w": 1600, "h": 2000, "date": "2025-03-03", "camera": "Canon EOS R5 Mark II", "lens": "RF50mm F1.2" },
+        { "full": "https://picsum.photos/seed/tokyo4/2000/1333", "thumb": "https://picsum.photos/seed/tokyo4/600/400", "w": 2000, "h": 1333, "date": "2025-03-03", "camera": "Canon EOS R5 Mark II", "lens": "RF24-70mm F2.8" },
+        { "full": "https://picsum.photos/seed/tokyo5/1600/2000", "thumb": "https://picsum.photos/seed/tokyo5/600/750", "w": 1600, "h": 2000, "date": "2025-03-04", "camera": "Canon EOS R5 Mark II", "lens": "RF135mm F1.8" },
+        { "full": "https://picsum.photos/seed/tokyo6/2000/1333", "thumb": "https://picsum.photos/seed/tokyo6/600/400", "w": 2000, "h": 1333, "date": "2025-03-04", "camera": "Canon EOS R5 Mark II", "lens": "RF15-35mm F2.8" }
+      ]
+    },
+    {
+      "slug": "sea-and-light",
+      "title": "海と光",
+      "subtitle": "水平線のリズム",
+      "collection": "風景", "collectionTitle": "風景", "collectionSlug": "landscape",
+      "series": null, "year": 2025, "tags": ["海", "水平線", "夏"], "featured": false, "order": 3,
+      "cover": "https://picsum.photos/seed/sea1/1200/1500",
+      "count": 6,
+      "photos": [
+        { "full": "https://picsum.photos/seed/sea1/1600/2000", "thumb": "https://picsum.photos/seed/sea1/600/750", "w": 1600, "h": 2000, "date": "2025-06-20", "camera": "Canon EOS R5 Mark II", "lens": "RF15-35mm F2.8" },
+        { "full": "https://picsum.photos/seed/sea2/2000/1333", "thumb": "https://picsum.photos/seed/sea2/600/400", "w": 2000, "h": 1333, "date": "2025-06-20", "camera": "Canon EOS R5 Mark II", "lens": "RF24-70mm F2.8" },
+        { "full": "https://picsum.photos/seed/sea3/1600/2000", "thumb": "https://picsum.photos/seed/sea3/600/750", "w": 1600, "h": 2000, "date": "2025-06-21", "camera": "Canon EOS R5 Mark II", "lens": "RF50mm F1.2" },
+        { "full": "https://picsum.photos/seed/sea4/2000/1333", "thumb": "https://picsum.photos/seed/sea4/600/400", "w": 2000, "h": 1333, "date": "2025-06-21", "camera": "Canon EOS R5 Mark II", "lens": "RF35mm F1.4" },
+        { "full": "https://picsum.photos/seed/sea5/1600/2000", "thumb": "https://picsum.photos/seed/sea5/600/750", "w": 1600, "h": 2000, "date": "2025-06-22", "camera": "Canon EOS R5 Mark II", "lens": "RF85mm F1.2" },
+        { "full": "https://picsum.photos/seed/sea6/2000/1333", "thumb": "https://picsum.photos/seed/sea6/600/400", "w": 2000, "h": 1333, "date": "2025-06-22", "camera": "Canon EOS R5 Mark II", "lens": "RF135mm F1.8" }
+      ]
+    }
+  ]
+}

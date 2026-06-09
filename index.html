@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>made_linlin — Photography</title>
+  <meta name="description" content="風景・光・静けさ。made_linlin の写真作品集。" />
+
+  <!-- フォント：上品なセリフ＋細身サンセリフ -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Shippori+Mincho:wght@400;500;800&family=Zen+Kaku+Gothic+New:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/style.css" />
+
+  <!-- ライブラリ（UMD：グローバルに gsap / ScrollTrigger / Lenis を生やす） -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+
+  <!-- Three.js は ESM（import map） -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- ローディング -->
+  <div id="loader" class="loader">
+    <div class="loader__inner">
+      <span class="loader__mark">寫</span>
+      <div class="loader__bar"><i></i></div>
+    </div>
+  </div>
+
+  <!-- 作品一覧（コレクション別グリッド）への導線 -->
+  <a href="gallery.html" class="works-link" aria-label="作品一覧へ">
+    <svg class="works-link__ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.3"/>
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.3"/>
+    </svg>
+    <span class="works-link__label">作品一覧</span>
+  </a>
+
+  <!-- 朝/夜トグル -->
+  <button id="mode-toggle" class="mode-toggle" aria-pressed="false" aria-label="朝と夜を切り替え">
+    <span class="mode-toggle__icons" aria-hidden="true">
+      <svg class="mode-toggle__ic mode-toggle__ic--day" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <circle cx="12" cy="12" r="4.3"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.5 1.5M17.2 17.2l1.5 1.5M18.7 5.3l-1.5 1.5M6.8 17.2l-1.5 1.5"/>
+      </svg>
+      <svg class="mode-toggle__ic mode-toggle__ic--night" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+        <path d="M20.5 14.8A8.2 8.2 0 0 1 9.2 3.5a7.2 7.2 0 1 0 11.3 11.3z"/>
+      </svg>
+    </span>
+    <span class="mode-toggle__label">朝 / 夜</span>
+  </button>
+
+  <!-- 3D キャンバス（背景に固定） -->
+  <canvas id="scene"></canvas>
+
+  <!-- シネマ的グレード：ビネット＋フィルムグレイン（クリック透過） -->
+  <div class="grade" aria-hidden="true"></div>
+
+  <!-- スマホ：傾き操作（ジャイロ）を有効化（JSで表示制御。PCでは自動的に消える） -->
+  <button id="motion-start" class="motion-start" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+      <rect x="7.5" y="3.5" width="9" height="17" rx="2"/><path d="M3.5 9a6 6 0 0 1 1.7-2.4M20.5 9a6 6 0 0 0-1.7-2.4"/>
+    </svg>
+    <span>傾けて、視点を動かす</span>
+  </button>
+
+  <!-- 上に乗るHTML（スクロール量を稼ぐための縦長コンテナ） -->
+  <main id="scroll">
+
+    <!-- ヒーロー：大自然と建築 -->
+    <section class="panel panel--hero" data-beat="0">
+      <div class="hero__title">
+        <p class="hero__kicker">PHOTOGRAPHY — made_linlin</p>
+        <h1>静けさを、<br/>光のままに。</h1>
+        <p class="hero__lead">スクロールして、森のなかへ。</p>
+      </div>
+      <div class="scroll-hint"><span>SCROLL</span><i></i></div>
+    </section>
+
+    <!-- 接近・入場（テキストだけ薄く） -->
+    <section class="panel panel--approach" data-beat="1">
+      <p class="approach__line">— その扉の向こうに、いくつもの瞬間がある —</p>
+    </section>
+
+    <!-- 作品が飛んでくるゾーン -->
+    <section class="panel panel--gallery" data-beat="2">
+      <header class="gallery__head">
+        <h2>Albums</h2>
+        <p>選ぶと、その一枚が連れていく場所へ。</p>
+      </header>
+    </section>
+
+  </main>
+
+  <!-- アルバムのキャプション（3D上の作品にホバー/選択した時に出す） -->
+  <div id="caption" class="caption" aria-hidden="true">
+    <span class="caption__title"></span>
+    <span class="caption__meta"></span>
+  </div>
+
+  <!-- 締めのCTA：体験の最後に Instagram へ誘導 -->
+  <section class="cta" id="cta">
+    <div class="cta__inner">
+      <p class="cta__lead">— その先は、Instagram で。</p>
+      <a class="cta__handle js-ig-link" id="ig-handle" href="#" target="_blank" rel="noopener noreferrer">@made_linlin</a>
+      <a class="cta__btn js-ig-link" href="#" target="_blank" rel="noopener noreferrer">
+        <svg class="cta__ig" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.15" fill="currentColor" stroke="none"/>
+        </svg>
+        <span>Instagram でフォロー</span>
+      </a>
+      <p class="cta__note">新作と、日々の光を。</p>
+    </div>
+    <footer class="cta__foot">© <span id="year"></span> made_linlin ・ Made with light.</footer>
+  </section>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

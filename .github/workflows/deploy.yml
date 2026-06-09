@@ -1,0 +1,55 @@
+name: Build & Deploy to GitHub Pages
+
+# photos/ かサイト本体を push したら自動でビルド→公開
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 写真があれば最適化&manifest生成（無ければ既存manifestを使用）
+        run: |
+          if find photos -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) | grep -q .; then
+            echo "photos/ に画像あり → ビルド実行"
+            (cd scripts && npm install --no-audit --no-fund && node build-gallery.mjs)
+          else
+            echo "photos/ に画像なし → 既存の data/manifest.json を使用（ビルドはスキップ）"
+          fi
+
+      - name: 公開用フォルダを組み立て（原本 photos/ は公開しない）
+        run: |
+          mkdir -p _site
+          cp -r index.html album.html gallery.html css js data public _site/
+          touch _site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

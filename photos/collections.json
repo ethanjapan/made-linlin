@@ -1,0 +1,4 @@
+{
+  "風景": { "slug": "landscape", "title": "風景", "description": "自然と光のあいだ", "order": 1 },
+  "夜景": { "slug": "cityscape", "title": "夜景", "description": "灯りと都市", "order": 2 }
+}
