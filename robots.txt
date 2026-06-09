@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ethanjapan.github.io/made-linlin/sitemap.xml

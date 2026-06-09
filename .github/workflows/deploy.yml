@@ -38,6 +38,8 @@ jobs:
         run: |
           mkdir -p _site
           cp -r index.html album.html gallery.html css js data public _site/
+          cp robots.txt _site/ 2>/dev/null || true
+          SITEMAP_OUT=_site/sitemap.xml node scripts/make-sitemap.mjs
           touch _site/.nojekyll
 
       - uses: actions/upload-pages-artifact@v3
