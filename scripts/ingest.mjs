@@ -7,9 +7,10 @@
 //   4) 結果を表示 → あなたがローカルで確認 → 問題なければ自分で push（公開）
 //
 //  使い方:
-//    node scripts/ingest.mjs            … 解析＆振り分け（公開はしない＝確認用）
+//    node scripts/ingest.mjs            … 解析＆振り分け（公開はしない＝確認用）。実行時に選別ルールを対話で聞く
 //    node scripts/ingest.mjs --dry      … 解析だけ（ファイルは動かさない・確認のみ）
-//    node scripts/ingest.mjs --publish  … 振り分け後にそのまま build+commit+push まで実行
+//    node scripts/ingest.mjs --publish  … 振り分け後、y/N 確認の上で build+commit+push
+//    --rule "人物・ピンボケを除外" … 選別ルールを毎回その場で指定（無指定なら対話で聞く／空欄=人物を除外）
 //
 //  前提: Mac の Ollama に vision モデル（既定 qwen2.5vl:7b）。無ければタグ無しで日付分類のみ。
 // =====================================================================
@@ -28,9 +29,13 @@ const OLLAMA = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
 const MODEL = process.env.VLM || "qwen2.5vl:7b";
 const EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"]);
 
-const args = new Set(process.argv.slice(2));
-const DRY = args.has("--dry");
-const PUBLISH = args.has("--publish");
+const argv = process.argv.slice(2);
+const DRY = argv.includes("--dry");
+const PUBLISH = argv.includes("--publish");
+// 選別ルールは実行時に自由文で都度指定可: --rule "人物・ピンボケを除外" （無指定なら対話で聞く）
+const _rIdx = argv.indexOf("--rule");
+const RULE_ARG = _rIdx >= 0 ? (argv[_rIdx + 1] || "") : null;
+const DEFAULT_RULE = "人物が主要な被写体、または顔がはっきり識別できる写真を除外する";
 
 // コレクション名(日本語) → slug。未知は romaji 風の簡易slug。
 const COL_SLUG = {
@@ -62,34 +67,39 @@ async function readExif(p) {
   };
 }
 
-const PROMPT =
-  "この写真をカタログ化します。次のJSONだけを返してください（前置き・説明は一切なし）。\n" +
-  '{"person": 人物が主要な被写体、または顔がはっきり識別できるなら true ／ 風景等で人がいない・小さく目立たないなら false,' +
-  '"collection":"風景|夜景|ポートレート|街|花|静物|動物|その他 のどれか1つ",' +
-  '"time_of_day":"昼|夕|夜",' +
-  '"tags":["内容を表す日本語タグを3〜5個"],' +
-  '"title_hint":"この一枚に合う短い詩的な日本語のアルバム名候補（10文字前後）"}';
+// 選別ルール（実行時に都度指定する自由文）をプロンプトに差し込む
+function buildPrompt(rule) {
+  return "あなたは写真キュレーターです。下記の『選別ルール』に従って、この写真を採用するか除外するか判定し、内容も分類してください。\n" +
+    `選別ルール: ${rule}\n` +
+    "次のJSONだけを返してください（前置き・説明は一切なし）。\n" +
+    '{"exclude": 選別ルールに該当して除外すべきなら true ／ 採用するなら false,' +
+    '"reason":"判定の短い理由（日本語）",' +
+    '"collection":"風景|夜景|ポートレート|街|花|静物|動物|その他 のどれか1つ",' +
+    '"time_of_day":"昼|夕|夜",' +
+    '"tags":["内容を表す日本語タグを3〜5個"],' +
+    '"title_hint":"この一枚に合う短い詩的な日本語のアルバム名候補（10文字前後）"}';
+}
 
-async function analyze(p) {
+async function analyze(p, rule) {
   try {
     const b64 = (await fs.readFile(p)).toString("base64");
     const res = await fetch(`${OLLAMA}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, prompt: PROMPT, images: [b64], stream: false, format: "json", options: { temperature: 0.2 } }),
+      body: JSON.stringify({ model: MODEL, prompt: buildPrompt(rule), images: [b64], stream: false, format: "json", options: { temperature: 0.1 } }),
     });
     if (!res.ok) throw new Error(`ollama ${res.status}`);
-    const j = await res.json();
-    const o = JSON.parse(j.response);
+    const o = JSON.parse((await res.json()).response);
     return {
-      person: !!o.person,
+      exclude: !!o.exclude,
+      reason: (o.reason || "").toString().slice(0, 30),
       collection: COL_SLUG[o.collection] ? o.collection : "その他",
       time: o.time_of_day || null,
       tags: Array.isArray(o.tags) ? o.tags.slice(0, 5) : [],
       title: (o.title_hint || "").toString().slice(0, 24),
     };
   } catch (e) {
-    return { person: false, collection: null, time: null, tags: [], title: null, err: e.message };
+    return { exclude: false, reason: "判定不可", collection: null, time: null, tags: [], title: null, err: e.message };  // 失敗時は採用（人が確認）
   }
 }
 
@@ -99,6 +109,14 @@ function confirm(q) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     rl.question(q, (a) => { rl.close(); resolve(/^y(es)?$/i.test((a || "").trim())); });
+  });
+}
+// 自由文の入力（選別ルール）。非対話なら空文字。
+function ask(q) {
+  if (!process.stdin.isTTY) return Promise.resolve("");
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(q, (a) => { rl.close(); resolve((a || "").trim()); });
   });
 }
 
@@ -114,21 +132,27 @@ async function main() {
   try { const r = await fetch(`${OLLAMA}/api/tags`, { signal: AbortSignal.timeout(4000) }); vlmOk = r.ok && JSON.stringify(await r.json()).includes(MODEL.split(":")[0]); } catch {}
   console.log(`\n  取り込み: ${files.length}枚 / VLM(${MODEL}): ${vlmOk ? "ON" : "OFF（タグ無し・日付分類のみ）"}\n`);
 
-  // 1) EXIF ＋ AI（人物などを選別＋分類）を全件
-  if (!vlmOk) console.log("  ⚠ AI(VLM)に接続できません＝人物の自動選別ができません。Ollama起動(127.0.0.1)を確認してください。\n");
+  // 今回の選別ルール（その場で都度・自由文で指定）
+  let rule = RULE_ARG;
+  if (rule === null && vlmOk) rule = await ask("  今回の選別ルールを入力（例: 人物・ピンボケ・料理を除外 ／ 風景だけ採用）\n  ▶ 空欄=デフォルト「人物を除外」: ");
+  rule = (rule || "").trim() || DEFAULT_RULE;
+
+  // 1) EXIF ＋ AI（ルールで選別＋分類）を全件
+  if (!vlmOk) console.log("  ⚠ AI(VLM)に接続できません＝自動選別ができません。Ollama起動(127.0.0.1)を確認してください。\n");
+  else console.log(`\n  ▶ 選別ルール: ${rule}\n`);
   const all = [];
   let i = 0;
   for (const file of files) {
     const src = path.join(INBOX, file);
     const exif = await readExif(src);
-    const vis = vlmOk ? await analyze(src) : { person: false, collection: null, tags: [], title: null };
-    process.stdout.write(`\r  AI選別 ${++i}/${files.length}  ${file.slice(0, 18).padEnd(18)} ${vis.person ? "除外(人物)" : (vis.collection || "-")}        `);
+    const vis = vlmOk ? await analyze(src, rule) : { exclude: false, collection: null, tags: [], title: null };
+    process.stdout.write(`\r  AI選別 ${++i}/${files.length}  ${file.slice(0, 18).padEnd(18)} ${vis.exclude ? "除外" : (vis.collection || "-")}        `);
     all.push({ file, src, exif, date: exif.date || "undated", vis });
   }
   console.log("\n");
 
-  const kept = all.filter((x) => !x.vis.person);       // 採用
-  const excluded = all.filter((x) => x.vis.person);    // AIが人物等として除外
+  const kept = all.filter((x) => !x.vis.exclude);       // 採用
+  const excluded = all.filter((x) => x.vis.exclude);    // ルールに該当して除外
 
   // 2) 採用分を撮影日でグループ化（各日 = 1アルバム）。コレクション/タイトル/タグは多数決
   const groups = {};
@@ -152,8 +176,8 @@ async function main() {
     const cam = a.items[0].exif;
     console.log(`     EXIF例: ${[cam.date, cam.camera, cam.lens, cam.f, cam.iso].filter(Boolean).join(" · ") || "なし(リサイズで消えた可能性)"}`);
   });
-  console.log(`\n  === AI除外（人物など） ${excluded.length}枚 ===`);
-  if (excluded.length) excluded.forEach((e) => console.log(`    - ${e.file}`));
+  console.log(`\n  === AI除外（ルール該当） ${excluded.length}枚 ===`);
+  if (excluded.length) excluded.forEach((e) => console.log(`    - ${e.file}${e.vis.reason ? "  （" + e.vis.reason + "）" : ""}`));
   else console.log("    （なし）");
   console.log("");
 
