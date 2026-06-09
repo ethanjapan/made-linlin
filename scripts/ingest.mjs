@@ -92,6 +92,8 @@ async function analyze(p) {
 
 const mode = (arr) => { const c = {}; arr.filter(Boolean).forEach((x) => (c[x] = (c[x] || 0) + 1)); return Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0] || null; };
 const topTags = (arrs, k = 4) => { const c = {}; arrs.flat().forEach((t) => (c[t] = (c[t] || 0) + 1)); return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, k).map((x) => x[0]); };
+// グループから代表を最大n枚、均等に抽出（大量でもAI判定を最小化）
+const pickReps = (list, n) => { if (list.length <= n) return list; const step = list.length / n, out = []; for (let i = 0; i < n; i++) out.push(list[Math.floor(i * step)]); return out; };
 
 async function main() {
   const files = await listInbox();
@@ -102,29 +104,44 @@ async function main() {
   try { const r = await fetch(`${OLLAMA}/api/tags`, { signal: AbortSignal.timeout(4000) }); vlmOk = r.ok && JSON.stringify(await r.json()).includes(MODEL.split(":")[0]); } catch {}
   console.log(`\n  取り込み: ${files.length}枚 / VLM(${MODEL}): ${vlmOk ? "ON" : "OFF（タグ無し・日付分類のみ）"}\n`);
 
+  // 1) EXIF を全件読む（高速）
   const items = [];
-  for (let i = 0; i < files.length; i++) {
-    const src = path.join(INBOX, files[i]);
+  for (const file of files) {
+    const src = path.join(INBOX, file);
     const exif = await readExif(src);
-    const vis = vlmOk ? await analyze(src) : { collection: null, tags: [], title: null, time: null };
-    process.stdout.write(`\r  解析 ${i + 1}/${files.length}  ${files[i].slice(0, 24).padEnd(24)} ${vis.collection || "-"}      `);
-    items.push({ file: files[i], src, exif, vis, date: exif.date || "undated" });
+    items.push({ file, src, exif, date: exif.date || "undated" });
   }
-  console.log("\n");
-
-  // 撮影日でグループ化 → 各日 = 1アルバム（コレクションは多数決）
+  // 2) 撮影日でグループ化（各日 = 1アルバム）
   const groups = {};
   items.forEach((it) => { (groups[it.date] ||= []).push(it); });
+  const dates = Object.keys(groups).sort();
+
+  // 3) 各グループの「代表 最大4枚」だけ AI 分類 → 大量でも高速
+  const REPS = 4;
+  const estVlm = vlmOk ? dates.reduce((n, d) => n + Math.min(REPS, groups[d].length), 0) : 0;
+  console.log(`  ${dates.length}グループ(撮影日) / AI判定 約${estVlm}枚（各日の代表のみ＝高速化）${vlmOk ? "" : " ※VLM OFF=日付分類のみ"}\n`);
 
   const plan = [];
-  for (const [date, list] of Object.entries(groups).sort()) {
-    const colJa = mode(list.map((x) => x.vis.collection)) || "その他";
+  let vlmDone = 0;
+  for (const date of dates) {
+    const list = groups[date];
+    let colJa = "その他", title = null, tags = [];
+    if (vlmOk) {
+      const vis = [];
+      for (const it of pickReps(list, REPS)) {
+        vis.push(await analyze(it.src));
+        process.stdout.write(`\r  AI判定 ${++vlmDone}/${estVlm}  (${date})          `);
+      }
+      colJa = mode(vis.map((v) => v.collection)) || "その他";
+      title = mode(vis.map((v) => v.title)) || null;
+      tags = topTags(vis.map((v) => v.tags));
+    }
     const colSlug = COL_SLUG[colJa] || slugify(colJa);
-    const title = mode(list.map((x) => x.vis.title)) || (date !== "undated" ? `${date} の記録` : "未分類");
-    const tags = topTags(list.map((x) => x.vis.tags));
+    title = title || (date !== "undated" ? `${date} の記録` : "未分類");
     const year = date !== "undated" ? Number(date.slice(0, 4)) : null;
     plan.push({ date, colJa, colSlug, title, tags, year, items: list });
   }
+  if (vlmOk) console.log("\n");
 
   // 表示（確認用）
   console.log("  === 振り分け案 ===");
